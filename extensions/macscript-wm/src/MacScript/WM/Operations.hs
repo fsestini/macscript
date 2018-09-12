@@ -54,16 +54,6 @@ nextLayout = do
 --------------------------------------------------------------------------------
 -- Tiling operations
 
-dispatchNew :: Window -> EWM ()
-dispatchNew w = do
-  b <- lift (configAllowsTile w)
-  if b
-    then do
-      title <- fmap (fromMaybe "<unknown>") (windowTitle w)
-      liftIO . putStrLn $ "Tiling: " ++ show (windowID w) ++ ":" ++ title
-      (TW w . Just <$> windowRect w) >>= msgToActive . InsertNew
-    else pure ()
-
 configAllowsTile :: Window -> WM Bool
 configAllowsTile w = do
   tm <- fmap (_wmcTileMode . _wmcUser) ask
@@ -77,9 +67,14 @@ tile w = do
   tiledIDs <- fmap twWid <$> use wmsTiled
   if windowID w `notElem` tiledIDs
     then do
+      title <- fmap (fromMaybe "<unknown>") (windowTitle w)
+      liftIO . putStrLn $ "Tiling: " ++ show (windowID w) ++ ":" ++ title
+
       tw <- TW w . Just <$> windowRect w
       sp <- windowSpace w
       sendMsgTo sp (InsertNew tw)
+
+      lift renderTree
     else pure ()
 
 untile :: Window -> EWM ()
@@ -90,6 +85,7 @@ untile w = do
     Just tw -> do
       wmsTiled %= filter (not . sameWID w . _twWindow)
       maybe (pure ()) (setRectAndCatch (_twWindow tw)) (_twFloatRect tw)
+      lift renderTree
 
 --------------------------------------------------------------------------------
 -- Focusing operations

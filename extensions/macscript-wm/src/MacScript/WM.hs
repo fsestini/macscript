@@ -32,12 +32,11 @@ wmMain c = do
     (SomeKeySet ks) <- _wmsKeySet <$> get
     setStatusItemTitle item (keySetStatusItem ks)
 
-    let printAndRender e = (>> (printEvent e >> renderTree))
-    runEventT $ onT_ (events keys) $ printAndRender <*> \case
+    runEventT $ onT_ (events keys) $ (flip (>>) . printEvent) <*> \case
 
       NewWindow w -> justLog "error processing new window: " $ do
-        b <- lift $ isWindowTileable w
-        if b then dispatchNew w else liftIO (putStrLn "not tileable")
+        b <- lift $ (&&) <$> isWindowTileable w <*> configAllowsTile w
+        if b then tile w else pure ()
 
       WindowDestroyed w ->
         justLog "error processing destroyed window: " (untile w)
@@ -47,8 +46,10 @@ wmMain c = do
         kss <- _wmcKeySets . _wmcUser <$> ask
         ks' <- _wmsKeySet <$> get
         fromMaybe (pure ()) (lookup hk kbs <|> (lookup ks' kss >>= lookup hk))
+        renderTree
 
-      _ -> pure ()
+      VisibilityChanged -> renderTree
+      DisplayOrSpaceChanged -> renderTree
 
   pure ()
 
