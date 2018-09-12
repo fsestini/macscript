@@ -1,0 +1,58 @@
+name:           macscript-wm
+version:        0.0.1.0
+description:    See README.md on Github
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+library
+  exposed-modules:
+      MacScript.WM
+      MacScript.WM.Core
+      MacScript.WM.DefaultConfig
+      MacScript.WM.Event
+      MacScript.WM.Layout
+      MacScript.WM.Layouts.Maximized
+      MacScript.WM.Layouts.TwoPaned
+      MacScript.WM.Operations
+  other-modules:
+      Utils
+      Paths_macscript_wm
+  hs-source-dirs:
+      src
+  default-extensions: TupleSections RecordWildCards LambdaCase
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+    , composition
+    , containers
+    , macscript
+    , macscript-menubar
+    , microlens
+    , microlens-ghc
+    , microlens-mtl
+    , mtl
+    , non-empty-zipper
+    , process
+    , safe
+    , stm
+  default-language: Haskell2010
+
+executable macscript-wm-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_macscript_wm
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , macscript
+    , macscript-wm
+  default-language: Haskell2010

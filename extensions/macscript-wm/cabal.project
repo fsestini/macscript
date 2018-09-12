@@ -1,0 +1,6 @@
+packages: 
+  ./
+  ../../macos-corelibs/
+  ../../
+  ../../macos-extras/
+  ../macscript-menubar/
