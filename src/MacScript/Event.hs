@@ -1,0 +1,215 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE FlexibleInstances #-}
+
+{-|
+
+Compositional, monadic event sources, offering a flexible interface for easy
+composition and manipulation. The instances of @Functor@, @Applicative@, and
+@Alternative@ for @Event@ allow easy transformation of the event sources. The
+instance of @Monad@ allows to compose and chain several event sources into one.
+
+-}
+
+module MacScript.Event
+  ( Event(..)
+  , unsubscribe
+
+  -- * Subscribing and unsubscribing
+  , Subscription(..)
+  , on
+  , on_
+  , MonadUnliftIO(..)
+  , askRunInIO
+
+  -- * Event monad transformer
+  , EventT
+  , onT
+  , onT_
+  , runEventT
+  , runEventTIO
+
+  -- * Event combinators
+  , ioE
+  , neverE
+  , onceE
+  , dropE
+  , takeE
+  , filterE
+  ) where
+
+import MacScript.Prelude
+import Control.Concurrent.STM (atomically,newTQueueIO,readTQueue,TQueue,writeTQueue)
+import Control.Concurrent.STM.TVar
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Unlift
+import Control.Monad.Reader
+import Control.Applicative (Alternative(..), liftA2)
+import Control.Monad (ap, MonadPlus(..))
+
+newtype Subscription = Subscription { _subDispose :: IO () }
+  deriving (Semigroup, Monoid)
+
+-- | Type of events that produce a stream of elements of type @a@. Attempts to
+-- connected an handler may fail with error type @e@.
+newtype Event a = Event { runEvent :: (a -> IO ()) -> IO Subscription }
+
+-- | Creates an event source from an IO action. When subscribed, this event
+-- source executes the IO action once and calls the event handler with its
+-- result.
+ioE :: IO a -> Event a
+ioE m = Event $ \k -> m >>= \x -> k x >> pure mempty
+
+instance Functor Event where
+  fmap f (Event e) = Event $ \k -> e (k . f)
+instance Applicative Event where
+  pure = return
+  (<*>) = ap
+instance Alternative Event where
+  empty = Event $ \_ -> return mempty
+  e1 <|> e2 = Event $ \k ->
+    liftA2 (<>) (on e1 (liftIO . k)) (on e2 (liftIO . k))
+instance MonadPlus Event where
+  mzero = empty
+  mplus = (<|>)
+instance Monad Event where
+  return x = Event $ \k -> liftIO (k x >> pure mempty)
+  e >>= f = Event $ \k -> do
+    dref <- liftIO (newTVarIO mempty)
+    morph <- askRunInIO
+    liftIO $ addD morph dref e $ \x -> addD morph dref (f x) k
+    liftIO (readTVarIO dref)
+    where
+      addD f' v e' h = do
+        d' <- f' (runEvent e' h)
+        atomically (modifyTVar v (<> d'))
+
+instance MonadIO Event where
+  liftIO = ioE . liftIO
+
+-- | An event that never fires
+neverE :: Event a
+neverE = Event $ const (pure mempty)
+
+-- | Unsubscribes from an event subscription, disconnecting the handler and
+-- freeing resources.
+unsubscribe :: MonadIO m => Subscription -> m ()
+unsubscribe = liftIO . _subDispose
+
+on :: MonadUnliftIO m => Event a -> (a -> m ()) -> m Subscription
+on (Event e) f = askRunInIO >>= \morph -> (liftIO . e) (morph . f)
+
+on_ :: MonadUnliftIO m => Event a -> (a -> m ()) -> m ()
+on_ e f = on e f >> pure ()
+
+data SomeEvent m = forall a . SomeEvent a (a -> m ())
+
+-- | Event sources like those represented by 'Event' have the drawback that they
+-- are subscribed to by providing a callback, that is called asynchronously
+-- whenever the event fires. As a consequence, callbacks must live in the IO
+-- monad.
+--
+-- 'EventT' provides a simple form of inversion of control allowing to handle
+-- events in an arbitrary monadic context. Consider the following example:
+--
+-- @
+-- data MyState
+-- data MyError
+-- type M = ExceptT MyError (StateT MyState IO)
+-- runM :: M () -> IO ()
+--
+-- event1 :: Event Int
+-- event2 :: Event String
+-- event3 :: Event ()
+--
+-- handler1 :: Int -> M ()
+-- handler2 :: String -> M ()
+-- handler3 :: M ()
+--
+-- main :: IO ()
+-- main = do
+--   _ <- forkIO . runM . runEventT_ $ do
+--     onT_ event1 handler1
+--     onT_ event2 handler2
+--     onT_ event3 (const handler3)
+--   pure ()
+-- @
+--
+-- The do-block that i passed to 'runEventT_' registers to three event sources
+-- with 'onT_'. Unlike with 'on_' (or 'on'), however, the return type of the
+-- callback functions lives in the 'M' monad, and all handlers are called in the
+-- same monadic context. That is, if @x1 :: String@, @x2 :: ()@, and @x3 :: Int@
+-- are values issued by the three event sources in this order, then the code
+-- above roughly corresponds to @handler2 x2 >> handler3 >> handler1 x3 >> ...@.
+newtype EventT m a = EventT (ReaderT (TQueue (SomeEvent m)) m a)
+  deriving (Functor, Applicative, Monad)
+
+instance MonadTrans EventT where
+  lift = EventT . lift
+
+onT :: MonadIO m => Event a -> (a -> m ()) -> EventT m Subscription
+onT e f = EventT . ReaderT $ \q -> liftIO . on e $ \x ->
+  atomically (writeTQueue q (SomeEvent x f))
+
+onT_ :: MonadIO m => Event a -> (a -> m ()) -> EventT m ()
+onT_ e f = onT e f >> pure ()
+
+queueForever :: MonadIO m => TQueue (SomeEvent m) -> m ()
+queueForever q =
+  forever (liftIO (atomically (readTQueue q)) >>= \(SomeEvent arg f) -> f arg)
+
+-- | Runs an 'EventT' expression, returning a value in the underlying monad that
+-- has the effect of registering all event subscriptions and then waiting for
+-- them to fire.
+--
+-- Internally, 'EventT' implements inversion of control by writing all event
+-- values to a queue, and then reading them back immediately from the @m@ monad,
+-- handing them to the appropriate handler function. This works by waiting
+-- forever on the queue, which means that 'runEventT' blocks indefinitely,
+-- since there is no way to fork an action in the underlying monad, unless this
+-- is 'IO' or an instance of 'MonadUnliftIO'. See 'runEventTIO' for a
+-- non-blocking version of 'runEventT' that does exactly this.
+runEventT :: MonadIO m => EventT m () -> m ()
+runEventT (EventT h) = do
+  q <- liftIO newTQueueIO
+  runReaderT h q
+  queueForever q
+
+-- | A non-blocking version of 'runEventT' that exploits an instance of
+-- 'MonadUnliftIO' for @m@ by turning the resulting action into an 'IO' action,
+-- and then forking it.
+runEventTIO :: MonadUnliftIO m => EventT m a -> m a
+runEventTIO (EventT h) = do
+  q <- liftIO newTQueueIO
+  x <- runReaderT h q
+  g <- askRunInIO
+  _ <- liftIO . forkIO . g $ queueForever q
+  pure x
+
+-- | Turns an event source into one that only fires once, with the first element
+-- that is produced by the original source.
+onceE :: Event a -> Event a
+onceE e = Event $ \k -> do
+  rec d <- on e $ \x -> do
+        unsubscribe d
+        liftIO (k x)
+  pure d
+
+-- | Filter an event source according to a specified predicate.
+filterE :: (a -> Bool) -> Event a -> Event a
+filterE p (Event e) = Event $ \k -> e (\x -> if p x then k x else pure ())
+
+-- | @takeE n e@ turns @e@ into an event source that only produces the first @n@
+-- elements of @e@.
+takeE :: Int -> Event a -> Event a
+takeE 0 _ = empty
+takeE 1 e = onceE e
+takeE n e | n > 1 = onceE e <|> takeE (n - 1) e
+          | otherwise = error "takeE: n must be non-negative"
+
+-- | @dropE n e@ drops the first @n@ elements from @e@, and fires the ones that
+-- follow.
+dropE :: Int -> Event a -> Event a
+dropE n e = replicateM_ n (onceE e) >> e

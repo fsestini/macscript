@@ -1,0 +1,3 @@
+[submodule "macos-corelibs"]
+	path = macos-corelibs
+	url = https://github.com/fsestini/macos-corelibs

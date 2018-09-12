@@ -1,0 +1,4 @@
+packages: 
+  ./
+  ./macos-corelibs/
+  ./macos-extras/

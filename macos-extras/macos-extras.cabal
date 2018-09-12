@@ -1,0 +1,84 @@
+name:           macos-extras
+version:        0.0.1.0
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    cbits/application.m
+    cbits/display.m
+    cbits/mouse.m
+    cbits/notification.m
+    cbits/object.m
+    cbits/workspace.m
+
+library
+  exposed-modules:
+      MacSdk.Framework.AppKit
+      MacSdk.Framework.AppKit.CoreApp
+      MacSdk.Framework.AppKit.CoreApp.Application
+      MacSdk.Framework.AppKit.CoreApp.Window
+      MacSdk.Framework.AppKit.Event
+      MacSdk.Framework.AppKit.Screen
+      MacSdk.Framework.Carbon
+      MacSdk.Framework.Carbon.Foreign
+      MacSdk.Framework.Carbon.Process
+      MacSdk.Framework.Carbon.PSN
+      MacSdk.Framework.Foundation
+      MacSdk.Framework.Foundation.Notification
+      MacSdk.Framework.Foundation.Object
+      MacSdk.Framework.Foundation.OperationQueue
+      MacSdk.Framework.Foundation.String
+      MacSdk.Framework.Foundation.Workspace
+      MacSdk.Framework.Keyboard
+      MacSdk.Framework.NSObject
+      MacSdk.Framework.Types
+      MacSdk.Prism
+  other-modules:
+      Paths_macos_extras
+  hs-source-dirs:
+      src
+  default-extensions:
+      TypeFamilies
+      RecordWildCards
+      TupleSections
+      FlexibleInstances
+      MultiParamTypeClasses
+      FlexibleContexts
+      GeneralizedNewtypeDeriving
+      UndecidableInstances
+      LambdaCase
+  ghc-options:
+      -Wall
+      -Wno-unused-top-binds
+      -Wcompat
+      -Wincomplete-record-updates
+      -Wincomplete-uni-patterns
+      -Wredundant-constraints
+  cc-options:
+      -Wno-deprecated
+      -Wno-int-to-void-pointer-cast
+  include-dirs:
+      cbits
+  c-sources:
+      cbits/application.m
+      cbits/display.m
+      cbits/keyboard.c
+      cbits/mouse.m
+      cbits/notification.m
+      cbits/object.m
+      cbits/workspace.m
+  frameworks:
+      Carbon, Cocoa
+  build-depends:
+      base >=4.7 && <5
+    , constraints
+    , containers
+    , managed
+    , microlens
+    , mtl
+    , profunctors
+    , transformers
+    , macos-corelibs
+  default-language: Haskell2010
