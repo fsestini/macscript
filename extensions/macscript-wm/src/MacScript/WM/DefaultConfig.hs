@@ -45,7 +45,6 @@ defaultKeyBindings = second (justLog "") <$>
   , altShiftKB '2' ~~> sendToDisplay 1
   , altKB '1'      ~~> focusDisplay 0
   , altKB '2'      ~~> focusDisplay 1
-  , altKB 'r'      ~~> msgToActive RotateClockwise
   , altKB ','      ~~> msgToActive ExpandMaster
   , altKB '.'      ~~> msgToActive ShrinkMaster
   , altKB 't'      ~~> (focusedWindow >>= maybe (pure ()) tile)
