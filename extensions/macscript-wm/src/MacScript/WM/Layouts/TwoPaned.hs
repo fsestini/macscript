@@ -1,3 +1,7 @@
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+
 module MacScript.WM.Layouts.TwoPaned
   ( Tall(..)
   , TwoPanedMsg(..)
@@ -6,6 +10,7 @@ module MacScript.WM.Layouts.TwoPaned
 
 import MacScript.Prelude
 
+import Control.Monad.State
 import Utils
 import MacScript hiding (on)
 import Data.List.NonEmptyZipper
@@ -37,13 +42,16 @@ orientation = lens _orientation (\t o -> t { _orientation = o })
 splitRatio :: Lens' Tall Double
 splitRatio = lens _splitRatio (\t r -> t { _splitRatio = r })
 
+masterPanes :: Lens' Tall Int
+masterPanes = lens _masterPanes (\t c -> t { _masterPanes = c })
+
 defaultTall :: Tall
 defaultTall = Tall 1 (Vertical MS) 0.5
 
 instance Layout Tall where
-  render r = onDoublePane [] (\(TW w _) -> [(w, r)]) (renderTwoPaned r)
-  handleMsg m = fromMaybe (const2 (pure Nothing))
-    (fmap (pure .:. handleTPMsg) (castMsg m) <|> fmap handleStdMsg (castMsg m))
+  -- render r = onDoublePane [] (\(TW w _) -> [(w, r)]) (renderTwoPaned r)
+  -- handleMsg m = fromMaybe (const2 (pure Nothing))
+  --   (fmap (pure .:. handleTPMsg) (castMsg m) <|> fmap handleStdMsg (castMsg m))
 
 onDoublePane
   :: a
@@ -60,129 +68,159 @@ onDoublePane _ _ g (Tall n o s) xs = g o s (take n xs) (drop n xs)
 nezFindW :: Window -> [TiledWindow] -> Maybe (NonEmptyZipper TiledWindow)
 nezFindW w = nezFind (sameWID w . _twWindow)
 
-data TwoPanedMsg
-  = IncrSplit | DecrSplit | RotateClockwise | EqualizeSplit
-  | SwapMaster Window | ExpandMaster | ShrinkMaster
+data Rotation = Clockwise | AntiClockwise
+
+data TwoPanedMsg :: * -> * where
+  ModifySplit :: (Double -> Double) -> TwoPanedMsg ()
+  Rotate :: Rotation -> TwoPanedMsg ()
+  -- SwapMaster :: (Int, Int) -> TwoPanedMsg (Int, Int)
+  ModifyMasterCount :: Int -> (Int -> Int) -> TwoPanedMsg ()
+  -- EqualizeSplit :: TwoPanedMsg
+  -- ExpandMaster | ShrinkMaster
 instance Message TwoPanedMsg
 
-onTall :: (a -> a) -> a -> b -> Maybe (a, b)
-onTall f = Just . first f .: (,)
+onTall :: (a -> a) -> b -> a -> Maybe (a, b)
+onTall f = Just . first f .: flip (,)
 
-handleStdMsg :: StdMessage -> Tall -> [TiledWindow] -> WM (Maybe (Tall, [TiledWindow]))
-handleStdMsg (InsertNew newW) = \t tws ->
-  let n = _masterPanes t
-  in pure (Just (t, take n tws ++ [newW] ++ drop n tws))
+data LayoutModel a
+  = OnMaster (NonEmptyZipper a) [a]
+  | OnSlave [a] (NonEmptyZipper a)
+  deriving (Functor, Foldable, Traversable)
 
-handleStdMsg (FocusTowards w dir) =
-  fmap (const Nothing) . maybe (pure ()) (justLog "" . focusWindow . _twWindow) .:
-  onDoublePane Nothing (const Nothing) (\o _ tw1 tw2 -> findTw w o dir tw1 tw2)
+layoutModel' :: Int -> Int -> Int -> LayoutModel ()
+layoutModel' beforeFoc afterFoc mstrPanes
+  | beforeFoc < mstrPanes =
+      OnMaster
+        (NonEmptyZipper (rp beforeFoc) () (rp (mstrPanes - beforeFoc - 1)))
+        (rp (total - mstrPanes))
+  | otherwise =
+      OnSlave (rp mstrPanes)
+        (NonEmptyZipper (rp (beforeFoc - mstrPanes)) () (rp (total - beforeFoc - 1)))
+  where total = beforeFoc + afterFoc + 1
+        rp = flip replicate ()
 
-handleStdMsg (SwapTowards w dir) = \t tws -> pure $ do
-  m <- onDoublePane  Nothing (const Nothing)
-         (\o _ tw1 tw2 -> findTw w o dir tw1 tw2) t tws
-  m' <- find (sameWID w . _twWindow) tws
-  let f x | sameWID (_twWindow x) w = m
-          | sameWID (_twWindow x) (_twWindow m) = m'
-          | otherwise = x
-  pure (t, fmap f tws)
+layoutModel :: Int -> Int -> Int -> LayoutModel Int
+layoutModel beforeFoc afterFoc mstrPanes =
+  flip evalState (0 :: Int) . traverse (const pick) $
+    layoutModel' beforeFoc afterFoc mstrPanes
+  where pick = do { x <- get ; put (succ x) ; pure x }
 
-findTw
-  :: Window -> Orientation -> Direction -> [TiledWindow] -> [TiledWindow]
-  -> Maybe TiledWindow
-findTw w o dir tw1 tw2 = case dir of
-  DirNext  -> _current . nextMod <$> nezFindW w tws
-  DirPrev  -> _current . previousMod <$> nezFindW w tws
-  DirLeft  -> leftOf w o tw1 tw2
-  DirRight -> rightOf w o tw1 tw2
-  DirUp    -> upOf w o tw1 tw2
-  DirDown  -> downOf w o tw1 tw2
-  where tws = tw1 ++ tw2
+handleStdMsg :: StdMessage a -> Tall -> Maybe (Tall, a)
+handleStdMsg InsertNew = Just .: (,) <*> _masterPanes
+handleStdMsg (FocusTowards beforeFoc afterFoc dir) = _
 
-handleTPMsg :: TwoPanedMsg -> Tall -> [TiledWindow] -> Maybe (Tall, [TiledWindow])
-handleTPMsg IncrSplit = onTall incrSplit
-handleTPMsg DecrSplit = onTall decrSplit
-handleTPMsg RotateClockwise = onTall (over orientation rotateOrntClockwise)
-handleTPMsg EqualizeSplit = onTall resetSplit
-handleTPMsg ExpandMaster = \l -> Just . ((expandMaster l . length . toList) &&& id)
-handleTPMsg ShrinkMaster = onTall shrinkMaster
-handleTPMsg (SwapMaster slaveID) = \t ->
-  fmap (t,) . onDoublePane Nothing (const Nothing) (const2 (swapMaster slaveID)) t
+-- handleStdMsg :: StdMessage -> Tall -> [TiledWindow] -> WM (Maybe (Tall, [TiledWindow]))
+-- handleStdMsg (InsertNew newW) = \t tws ->
+--   let n = _masterPanes t
+--   in pure (Just (t, take n tws ++ [newW] ++ drop n tws))
 
-expandMaster :: Tall -> Int -> Tall
-expandMaster t@(Tall m x y) tot =
-  if tot - m > 1 then Tall (succ m) x y else t
+-- handleStdMsg (FocusTowards w dir) =
+--   fmap (const Nothing) . maybe (pure ()) (justLog "" . focusWindow . _twWindow) .:
+--   onDoublePane Nothing (const Nothing) (\o _ tw1 tw2 -> findTw w o dir tw1 tw2)
 
-shrinkMaster :: Tall -> Tall
-shrinkMaster (Tall m x y) = Tall (if m == 1 then 1 else pred m) x y
+-- handleStdMsg (SwapTowards w dir) = \t tws -> pure $ do
+--   m <- onDoublePane  Nothing (const Nothing)
+--          (\o _ tw1 tw2 -> findTw w o dir tw1 tw2) t tws
+--   m' <- find (sameWID w . _twWindow) tws
+--   let f x | sameWID (_twWindow x) w = m
+--           | sameWID (_twWindow x) (_twWindow m) = m'
+--           | otherwise = x
+--   pure (t, fmap f tws)
 
-swapMaster :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe [TiledWindow]
-swapMaster slave mst slv = do
-  i <- elemIndex (windowID slave) (fmap twWid slv)
-  pure $ swapAt 0 (length mst + i) (mst ++ slv)
+-- findTw
+--   :: Window -> Orientation -> Direction -> [TiledWindow] -> [TiledWindow]
+--   -> Maybe TiledWindow
+-- findTw w o dir tw1 tw2 = case dir of
+--   DirNext  -> _current . nextMod <$> nezFindW w tws
+--   DirPrev  -> _current . previousMod <$> nezFindW w tws
+--   DirLeft  -> leftOf w o tw1 tw2
+--   DirRight -> rightOf w o tw1 tw2
+--   DirUp    -> upOf w o tw1 tw2
+--   DirDown  -> downOf w o tw1 tw2
+--   where tws = tw1 ++ tw2
 
-rect :: Double -> Double -> Double -> Double -> Rect
-rect x y w h = Rect (Point x y) (Size w h)
+handleTPMsg :: TwoPanedMsg a -> Tall -> Maybe (Tall, a)
+handleTPMsg (ModifySplit f) = onTall (modifySplit f) ()
+handleTPMsg (Rotate r) = onTall (over orientation (rotate r)) ()
+handleTPMsg (ModifyMasterCount total f) = onTall (over masterPanes f) ()
+  where f m | f m < 1     = 1
+            | f m > total = total
+            | otherwise   = f m
 
-fakePanes :: Orientation -> (Rect, Rect)
-fakePanes (Vertical _) = (rect 0 0 100 100, rect 100 0 100 100)
-fakePanes (Horizontal _) = (rect 0 0 100 100, rect 0 100 100 100)
+modifySplit :: (Double -> Double) -> Tall -> Tall
+modifySplit f = over splitRatio g
+  where g x | f x > 0.8 = 0.8
+            | f x < 0.2 = 0.2
+            | otherwise = f x
 
-incrSplit, decrSplit, resetSplit :: Tall -> Tall
-incrSplit = over splitRatio incrCapped
-  where incrCapped x = if x + 0.05 > 0.8 then 0.8 else x + 0.05
-decrSplit = over splitRatio decrCapped
-  where decrCapped x = if x - 0.05 < 0.2 then 0.2 else x - 0.05
-resetSplit = over splitRatio (const 0.5)
-
-otherOf' :: NonEmptyZipper TiledWindow -> [TiledWindow] -> Maybe TiledWindow
-otherOf' z tws = closest
-  where
-    ornt = Vertical MS ; (fp1, fp2) = fakePanes ornt
-    (ts1, ts2) = (renderPane ornt fp1 (toList z), renderPane ornt fp2 tws)
-    r = snd (ts1 !! getPosition z)
-    closest = fmap fst . headMay $ sortBy (on compare (rectDist r . snd)) ts2
-
-otherOf :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
-otherOf w tws1 tws2 =  (nezFindW w tws1 >>= \z -> otherOf' z tws2)
-                   <|> (nezFindW w tws2 >>= \z -> otherOf' z tws1)
-
-renderTwoPaned
-  :: Rect -> Orientation -> Double
-  -> [TiledWindow] -> [TiledWindow] -> [(Window, Rect)]
-renderTwoPaned screen ornt fl mstr slv = fmap (first _twWindow) $
-  renderPane ornt masterRect mstr ++ renderPane ornt slaveRect slv
-  where (masterRect, slaveRect) = paneRects ornt fl screen
-
-renderPane :: Orientation -> Rect -> [TiledWindow] -> [(TiledWindow, Rect)]
-renderPane (Vertical _) r tws = zip tws (splitHorizontallyN (length tws) r)
-renderPane (Horizontal _) r tws = zip tws (splitVerticallyN (length tws) r)
-
-paneRects :: Orientation -> Double -> Rect -> (Rect, Rect)
-paneRects (Vertical MS) fl = splitVertically fl
-paneRects (Vertical SM) fl = T.swap . splitVertically fl
-paneRects (Horizontal MS) fl = splitHorizontally fl
-paneRects (Horizontal SM) fl = T.swap . splitHorizontally fl
-
-leftOf, rightOf, upOf, downOf
-  :: Window -> Orientation -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
-leftOf w ornt = case ornt of
-  { Vertical _ -> otherOf w ; Horizontal _ -> aboveOf w }
-rightOf w ornt = case ornt of
-  { Vertical _ -> otherOf w ; Horizontal _ -> belowOf w }
-upOf w ornt = case ornt of
-  { Vertical _ -> aboveOf w ; Horizontal _ -> otherOf w }
-downOf w ornt = case ornt of
-  { Vertical _ -> belowOf w ; Horizontal _ -> otherOf w }
-
-aboveOf, belowOf :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
-aboveOf w t1 t2 =  ((_current . previousMod) <$> nezFindW w t1)
-               <|> ((_current . previousMod) <$> nezFindW w t2)
-belowOf w t1 t2 =  ((_current . nextMod) <$> nezFindW w t1)
-               <|> ((_current . nextMod) <$> nezFindW w t2)
-
-rotateOrntClockwise :: Orientation -> Orientation
-rotateOrntClockwise = \case
+rotate :: Rotation -> Orientation -> Orientation
+rotate Clockwise = \case
   Horizontal MS -> Vertical SM
   Vertical MS   -> Horizontal MS
   Horizontal SM -> Vertical MS
   Vertical SM   -> Horizontal SM
+rotate AntiClockwise = \case
+  Horizontal MS -> Vertical MS
+  Vertical MS   -> Horizontal SM
+  Horizontal SM -> Vertical SM
+  Vertical SM   -> Horizontal MS
+
+--------------------------------------------------------------------------------
+
+-- swapMaster :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe [TiledWindow]
+-- swapMaster slave mst slv = do
+--   i <- elemIndex (windowID slave) (fmap twWid slv)
+--   pure $ swapAt 0 (length mst + i) (mst ++ slv)
+
+-- rect :: Double -> Double -> Double -> Double -> Rect
+-- rect x y w h = Rect (Point x y) (Size w h)
+
+-- fakePanes :: Orientation -> (Rect, Rect)
+-- fakePanes (Vertical _) = (rect 0 0 100 100, rect 100 0 100 100)
+-- fakePanes (Horizontal _) = (rect 0 0 100 100, rect 0 100 100 100)
+
+-- otherOf' :: NonEmptyZipper TiledWindow -> [TiledWindow] -> Maybe TiledWindow
+-- otherOf' z tws = closest
+--   where
+--     ornt = Vertical MS ; (fp1, fp2) = fakePanes ornt
+--     (ts1, ts2) = (renderPane ornt fp1 (toList z), renderPane ornt fp2 tws)
+--     r = snd (ts1 !! getPosition z)
+--     closest = fmap fst . headMay $ sortBy (on compare (rectDist r . snd)) ts2
+
+-- otherOf :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
+-- otherOf w tws1 tws2 =  (nezFindW w tws1 >>= \z -> otherOf' z tws2)
+--                    <|> (nezFindW w tws2 >>= \z -> otherOf' z tws1)
+
+-- renderTwoPaned
+--   :: Rect -> Orientation -> Double
+--   -> [TiledWindow] -> [TiledWindow] -> [(Window, Rect)]
+-- renderTwoPaned screen ornt fl mstr slv = fmap (first _twWindow) $
+--   renderPane ornt masterRect mstr ++ renderPane ornt slaveRect slv
+--   where (masterRect, slaveRect) = paneRects ornt fl screen
+
+-- renderPane :: Orientation -> Rect -> [TiledWindow] -> [(TiledWindow, Rect)]
+-- renderPane (Vertical _) r tws = zip tws (splitHorizontallyN (length tws) r)
+-- renderPane (Horizontal _) r tws = zip tws (splitVerticallyN (length tws) r)
+
+-- paneRects :: Orientation -> Double -> Rect -> (Rect, Rect)
+-- paneRects (Vertical MS) fl = splitVertically fl
+-- paneRects (Vertical SM) fl = T.swap . splitVertically fl
+-- paneRects (Horizontal MS) fl = splitHorizontally fl
+-- paneRects (Horizontal SM) fl = T.swap . splitHorizontally fl
+
+-- leftOf, rightOf, upOf, downOf
+--   :: Window -> Orientation -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
+-- leftOf w ornt = case ornt of
+--   { Vertical _ -> otherOf w ; Horizontal _ -> aboveOf w }
+-- rightOf w ornt = case ornt of
+--   { Vertical _ -> otherOf w ; Horizontal _ -> belowOf w }
+-- upOf w ornt = case ornt of
+--   { Vertical _ -> aboveOf w ; Horizontal _ -> otherOf w }
+-- downOf w ornt = case ornt of
+--   { Vertical _ -> belowOf w ; Horizontal _ -> otherOf w }
+
+-- aboveOf, belowOf :: Window -> [TiledWindow] -> [TiledWindow] -> Maybe TiledWindow
+-- aboveOf w t1 t2 =  ((_current . previousMod) <$> nezFindW w t1)
+--                <|> ((_current . previousMod) <$> nezFindW w t2)
+-- belowOf w t1 t2 =  ((_current . nextMod) <$> nezFindW w t1)
+--                <|> ((_current . nextMod) <$> nezFindW w t2)

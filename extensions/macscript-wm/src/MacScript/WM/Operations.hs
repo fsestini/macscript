@@ -1,9 +1,9 @@
 module MacScript.WM.Operations where
 
+import Utils
 import Data.Bifunctor (second)
 import Data.Maybe (fromMaybe)
 import Data.List (find)
-import Data.Composition
 import MacScript
 import MacScript.WM.Core
 import Data.List.NonEmptyZipper (next, previous, fromNonEmpty, nextMod
@@ -22,11 +22,12 @@ setKeySet ks = do
   item <- _wmcStatusItem <$> ask
   setStatusItemTitle item (keySetStatusItem ks)
 
-msgToActive :: (Message msg) => msg -> EWM ()
+msgToActive :: Message msg => msg a -> EWM (Maybe a)
 msgToActive m = activeSpace >>= flip sendMsgTo m
 
-sendMsgTo :: (Message msg) => Space -> msg -> EWM ()
-sendMsgTo sp m = overWorkspace sp (lift .: handleMsg (SomeMessage m))
+sendMsgTo :: Message msg => Space -> msg a -> EWM (Maybe a)
+sendMsgTo sp m = overLayout sp (lift . handleMsg (SomeMessage m))
+  -- overWorkspace sp (lift .: handleMsg (SomeMessage m))
 
 setRectAndCatch :: MonadIO m => Window -> Rect -> m ()
 setRectAndCatch w r = handleUIErrM (const msg) $ setWindowRect w r
@@ -40,7 +41,7 @@ renderTree = justLog "renderTree: " $ do
   pd <- fmap (_wmcPadding . _wmcUser) ask
   lift (checkS (spcID sp))
 
-  workspace sp >>= \(SL l, tws) ->
+  workspace sp >>= \(SomeLayout l, tws) ->
     lift . draw . fmap (second (pad pd)) $ render drect l tws
 
   where draw = mapM_ (uncurry setRectAndCatch)
@@ -72,7 +73,8 @@ tile w = do
 
       tw <- TW w . Just <$> windowRect w
       sp <- windowSpace w
-      sendMsgTo sp (InsertNew tw)
+      mix <- sendMsgTo sp InsertNew
+      overTiles sp (\tws -> pure $ mix >>= \ix -> Just (insertAt ix tw tws))
 
       lift renderTree
     else pure ()

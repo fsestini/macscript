@@ -17,6 +17,9 @@ nezFind p xs = do
 const2 :: c -> a -> b -> c
 const2 x _ _ = x
 
+insertAt :: Int -> a -> [a] -> [a]
+insertAt ix x xs = take ix xs ++ [x] ++ drop ix xs
+
 maybeM :: Applicative m => (a -> m ()) -> Maybe a -> m ()
 maybeM = maybe (pure ())
 
@@ -26,6 +29,11 @@ swapAt i j xs = let a = xs !! i ; b = xs !! j in
   _ | k == i -> b
   _ | k == j -> a
   _ -> x
+
+splitInTwo :: (a -> Bool) -> [a] -> Maybe ([a], [a])
+splitInTwo p xs = case dropWhile (not . p) xs of
+  [] -> Nothing
+  (_ : ys) -> Just (takeWhile (not . p) xs, ys)
 
 overSubstring :: (a -> Bool) -> ([a] -> [a]) -> [a] -> [a]
 overSubstring p f ss =

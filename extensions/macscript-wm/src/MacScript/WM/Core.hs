@@ -2,6 +2,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE GADTs #-}
 
 module MacScript.WM.Core
   ( WM
@@ -18,7 +20,11 @@ module MacScript.WM.Core
   , TileMode(..)
   , twWid
   , isWindowTileable
-  , overWorkspace
+  -- , overWorkspace
+  , overTiles
+  , overLayout
+  , tilesInSpace
+  , layout
   , workspace
   , checkS
   -- * Messages
@@ -86,25 +92,30 @@ data TileMode = OptIn [String] | OptOut [String]
 --------------------------------------------------------------------------------
 -- WM messages and layouts
 
-class Typeable a => Message a
-data SomeMessage = forall a . Message a => SomeMessage a
+class Typeable m => Message (m :: * -> *)
 
-castMsg :: Message a => SomeMessage -> Maybe a
+data SomeMessage a = forall m . Message m => SomeMessage (m a)
+
+castMsg :: (Typeable a, Message m)
+        => SomeMessage a -> Maybe (m a)
 castMsg (SomeMessage m) = cast m
-
-class Layout l where
-  render :: Rect -> l -> [TiledWindow] -> [(Window, Rect)]
-  handleMsg :: SomeMessage -> l -> [TiledWindow] -> WM (Maybe (l, [TiledWindow]))
-
-data SomeLayout = forall l . Layout l => SL l
 
 data Direction = DirLeft | DirRight | DirUp | DirDown | DirNext | DirPrev
 
-data StdMessage = FocusTowards Window Direction
-                | InsertNew TiledWindow
-                | SwapTowards Window Direction
-                deriving Typeable
+data StdMessage :: * -> * where
+  FocusTowards :: Int -> Int -> Direction -> StdMessage Int
+  InsertNew :: StdMessage Int
+  SwapTowards :: NonEmptyZipper WindowID -> Direction -> StdMessage (Int, Int)
+  deriving Typeable
+
 instance Message StdMessage
+
+class Layout l where
+  render :: Rect -> l -> [TiledWindow] -> [(Window, Rect)]
+  handleMsg :: SomeMessage a -> l -> WM (Maybe (l, a))
+  -- handleMsg :: SomeMessage -> l -> [TiledWindow] -> WM (Maybe (l, [TiledWindow]))
+
+data SomeLayout = forall l . Layout l => SomeLayout l
 
 --------------------------------------------------------------------------------
 
@@ -194,32 +205,58 @@ isWindowTileable :: Window -> WM Bool
 isWindowTileable w = handleUIErr (const False) $
   and <$> sequence [isWindowStandard w, isWindowMovable w, isWindowResizable w]
 
-overWorkspace
-  :: Space
-  -> (forall l. Layout l => l -> [TiledWindow] -> EWM (Maybe (l, [TiledWindow])))
-  -> EWM ()
-overWorkspace sp f = do
-  (SL l, tws) <- workspace sp
-  m <- f l tws
-  flip maybeM m $ \(newL, newTws) -> do
-    wmsSpaceLayouts . at (spcID sp) . _Just . current .= SL newL
-    wmsTiled %= overSubstring ((`elem` fmap twWid tws) . twWid) (const newTws)
-
--- onInvalid :: MonadCatch m => a -> m a -> m a
--- onInvalid x m = catch m $ \case
---   InvalidUIElementError -> pure x
---   RequestTimeoutError -> pure x
---   e -> throwM e
-
-workspace :: Space -> EWM (SomeLayout, [TiledWindow])
-workspace sp = do
+layout :: Space -> EWM SomeLayout
+layout sp = do
   lift (checkS (spcID sp))
+  mly <- preuse (wmsSpaceLayouts . at (spcID sp) . _Just . current)
+  maybe (throwError (UnknownSpace (spcID sp))) pure mly
+
+overLayout :: Space -> (forall l. Layout l => l -> EWM (Maybe (l, a)))
+           -> EWM (Maybe a)
+overLayout sp f = do
+  (SomeLayout l) <- layout sp
+  m <- f l
+  flip (maybe (pure Nothing)) m $ \(newL, x) -> do
+    wmsSpaceLayouts . at (spcID sp) . _Just . current .= SomeLayout newL
+    pure (Just x)
+
+tilesInSpace :: Space -> WM [TiledWindow]
+tilesInSpace sp = do
   allTiled <- use wmsTiled
   tiledInSpace <- liftIO (filterM (spaceHasWindow sp . _twWindow) allTiled)
-  visibleTiles <-
-    filterM (handleUIErr (const False) . isWindowVisible . _twWindow) tiledInSpace
-  mly <- preuse (wmsSpaceLayouts . at (spcID sp) . _Just . current)
-  maybe (throwError (UnknownSpace (spcID sp))) (pure . (,visibleTiles)) mly
+  filterM (handleUIErr (const False) . isWindowVisible . _twWindow) tiledInSpace
+
+overTiles :: Space -> ([TiledWindow] -> EWM (Maybe [TiledWindow]))
+          -> EWM ()
+overTiles sp f = do
+  tws <- lift (tilesInSpace sp)
+  m <- f tws
+  flip (maybe (pure ())) m $ \newTws ->
+    wmsTiled %= overSubstring ((`elem` fmap twWid tws) . twWid) (const newTws)
+
+-- overWorkspace
+--   :: Space
+--   -> (forall l. Layout l => l -> [TiledWindow] -> EWM (Maybe (l, [TiledWindow])))
+--   -> EWM ()
+-- overWorkspace sp f = do
+--   (SomeLayout l, tws) <- workspace sp
+--   m <- f l tws
+--   flip maybeM m $ \(newL, newTws) -> do
+--     wmsSpaceLayouts . at (spcID sp) . _Just . current .= SomeLayout newL
+--     wmsTiled %= overSubstring ((`elem` fmap twWid tws) . twWid) (const newTws)
+
+workspace :: Space -> EWM (SomeLayout, [TiledWindow])
+workspace sp = (,) <$> layout sp <*> lift (tilesInSpace sp)
+
+-- workspace :: Space -> EWM (SomeLayout, [TiledWindow])
+-- workspace sp = do
+--   lift (checkS (spcID sp))
+--   allTiled <- use wmsTiled
+--   tiledInSpace <- liftIO (filterM (spaceHasWindow sp . _twWindow) allTiled)
+--   visibleTiles <-
+--     filterM (handleUIErr (const False) . isWindowVisible . _twWindow) tiledInSpace
+--   mly <- preuse (wmsSpaceLayouts . at (spcID sp) . _Just . current)
+--   maybe (throwError (UnknownSpace (spcID sp))) (pure . (,visibleTiles)) mly
 
 checkS :: SpaceID -> WM ()
 checkS sid = fmap (fmap snd . _wmcLayouts . _wmcUser) ask >>= checkS' sid
