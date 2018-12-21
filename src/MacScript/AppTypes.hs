@@ -6,6 +6,7 @@ import MacSdk
 
 import MacScript.Prelude
 import MacScript.Internal.Window (Window(..))
+import MacScript.Internal.Space
 
 -- | Returns whether the two windows have the same identifier.
 --
@@ -21,14 +22,6 @@ sameWID w1 w2 = _windowID w1 == _windowID w2
 --   rls <- observerGetRunLoopSource obs
 --   b <- runLoopContainsSource mrl rls DefaultMode
 --   if b then pure () else runLoopAddSource mrl rls DefaultMode
-
-data Space = Space
-  { spcID :: SpaceID
-  , spcType :: SpaceType
-  } deriving (Show, Eq)
-
-createSpace :: SpaceID -> IO Space
-createSpace sid = Space sid <$> spaceType' sid
 
 displayUUIDString :: DisplayID -> IO CFString
 displayUUIDString = displayUUID >=> uuidString'
