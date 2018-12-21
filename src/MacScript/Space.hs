@@ -37,6 +37,7 @@ import MacScript.Event
 import MacScript.Display
 import MacScript.AppTypes
 import MacScript.Error
+import MacScript.Internal.Process (carbonProcess)
 
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 

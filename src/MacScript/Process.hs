@@ -16,7 +16,7 @@ module MacScript.Process
   ) where
 
 import MacSdk
-import MacScript.AppTypes
+import MacScript.Internal.Process (CarbonProcess (..), carbonProcess, carbonProcessPID)
 import Control.Monad.IO.Class (MonadIO(..))
 import MacSdk.Framework.Carbon
 
@@ -34,3 +34,7 @@ interactiveCarbonProc CProc{..} = isProcessInteractive _crbnBackground _crbnPoli
 interactiveProcs :: MonadIO m => m [CarbonProcess]
 interactiveProcs =
   liftIO $ filter interactiveCarbonProc <$> (allPSNs >>= mapM carbonProcess)
+
+-- | Name of the process.
+processName :: MonadIO m => CarbonProcess -> m String
+processName = liftIO . getProcessName . _crbnPID

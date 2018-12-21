@@ -10,10 +10,8 @@ cabal-version:  >= 1.10
 
 library
   exposed-modules:
-      Control.Monad.IO.Lifted
       MacScript
       MacScript.App
-      MacScript.AppTypes
       MacScript.Display
       MacScript.Error
       MacScript.Event
@@ -26,7 +24,12 @@ library
       MacScript.Rectangle
       MacScript.Space
       MacScript.Window
+
+      MacScript.Internal.Process
   other-modules:
+      Control.Monad.IO.Lifted
+      MacScript.AppTypes
+
       Paths_macscript
   hs-source-dirs:
       src

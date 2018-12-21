@@ -53,6 +53,7 @@ import MacScript.Rectangle
 import MacScript.Space
 import MacScript.Display
 import MacScript.Error
+import MacScript.Internal.Process (CarbonProcess(..))
 
 import Foreign.Ptr
 import Foreign.StablePtr

@@ -8,16 +8,11 @@ import MacSdk.Framework.Carbon
 
 import MacScript.Error
 import MacScript.Prelude
+import MacScript.Process (processName)
+import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
 import Data.Traversable (for)
 
 import Control.Monad.Loops (orM)
-
-data CarbonProcess = CProc
-  { _crbnPID :: PID
-  , _crbnPSN :: PSN
-  , _crbnPolicy :: ProcPolicy
-  , _crbnBackground :: Bool
-  } deriving (Show)
 
 -- | Returns whether the two windows have the same identifier.
 --
@@ -39,24 +34,6 @@ focusedWindowInApp app@(App {..}) = wrapAXErr . runMaybeT $ do
   el <- MaybeT $ maybeOnAXErrs [AXErrorNoValue]
           (attributeValue _appElement FocusedWindowAttribute)
   MaybeT (maybeOnInvalidOrTimeout (mkWindowRetry 1 app el))
-
-carbonProcessPID :: CarbonProcess -> PID
-carbonProcessPID = _crbnPID
-
-carbonProcessPSN :: CarbonProcess -> PSN
-carbonProcessPSN = _crbnPSN
-
--- | Retrieve the Carbon process associated to a PSN.
-carbonProcess :: PSN -> IO CarbonProcess
-carbonProcess psn =
-  CProc <$> processPID psn
-        <*> pure psn
-        <*> processPolicy psn
-        <*> getIsBackground psn
-
--- | Name of the process.
-processName :: MonadIO m => CarbonProcess -> m String
-processName = liftIO . getProcessName . _crbnPID
 
 data App = App
   { _appProcess :: CarbonProcess
