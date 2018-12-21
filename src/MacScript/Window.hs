@@ -275,3 +275,8 @@ windows app@App {..} = do
   maybe (pure []) pure ws
   where getWindowElements a =
           attributeValue a WindowsAttribute >>= liftIO . arrayValues
+
+-- | Returns the space to which the specified window belongs to.
+windowSpace :: MonadIO m => Window -> m Space
+windowSpace = liftIO . spaceForWindowID . _windowID
+  where spaceForWindowID = spaceIDForWindowID >=> createSpace

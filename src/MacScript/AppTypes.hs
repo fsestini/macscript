@@ -44,11 +44,6 @@ activeSpaceID = MacSdk.activeDisplay >>= activeSpaceIDForDisplay
 activeSpaceForDisplay :: MonadIO m => DisplayID -> m Space
 activeSpaceForDisplay = liftIO . (>>= createSpace) . activeSpaceIDForDisplay
 
--- | Returns the space to which the specified window belongs to.
-windowSpace :: MonadIO m => Window -> m Space
-windowSpace = liftIO . spaceForWindowID . _windowID
-  where spaceForWindowID = spaceIDForWindowID >=> createSpace
-
 -- | Returns the 'SpaceID' of the space to which the window with a given
 -- 'WindowID' belongs to.
 spaceIDForWindowID :: WindowID -> IO SpaceID
