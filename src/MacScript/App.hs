@@ -26,14 +26,13 @@ module MacScript.App
 import MacSdk (PID, observerCreate, addNotification, observerStart',
                observerStop, observerRelease, UINotification(..))
 import MacScript.Prelude
-import MacScript.AppTypes
 import MacScript.Process
 import MacScript.Event
 import MacScript.Error
 import MacScript.Space
 
 import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
-import MacScript.Internal.App (App(..), mkAppRetry)
+import MacScript.Internal.App (App(..), mkAppRetry, focusApp)
 import MacScript.Internal.Window (Window(..), mkWindowRetry)
 
 import Data.List (find)

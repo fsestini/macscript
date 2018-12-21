@@ -3,14 +3,9 @@
 module MacScript.AppTypes where
 
 import MacSdk
-import MacSdk.Framework.Carbon
 
-import MacScript.Error
 import MacScript.Prelude
-import MacScript.Internal.Process (CarbonProcess(..))
 import MacScript.Internal.Window (Window(..))
-
-import MacScript.Internal.App (App(..))
 
 -- | Returns whether the two windows have the same identifier.
 --
@@ -34,12 +29,6 @@ data Space = Space
 
 createSpace :: SpaceID -> IO Space
 createSpace sid = Space sid <$> spaceType' sid
-
--- | Brings user focus to the specified application.
-focusApp :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m ()
-focusApp app = do
-  b <- liftIO . setFrontProcessFrontWindowOnly . _crbnPID . _appProcess $ app
-  if b then pure () else throwing _ScriptError InvalidUIElementError
 
 displayUUIDString :: DisplayID -> IO CFString
 displayUUIDString = displayUUID >=> uuidString'

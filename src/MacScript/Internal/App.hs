@@ -8,8 +8,9 @@ import MacSdk.Framework.Accessibility.Attribute.Types
   (SomeAttribute(..), Attribute(..), toAttributeString)
 
 import MacScript.Prelude
-import MacScript.Process (processName)
-import MacScript.Error (retryOnCannotComplete)
+import MacScript.Process (processName, setFrontProcessFrontWindowOnly)
+import MacScript.Error (AsScriptError(..), ScriptError(..),
+                        retryOnCannotComplete, throwing)
 import MacScript.Internal.Process (CarbonProcess(..))
 
 data App = App
@@ -46,3 +47,9 @@ supportsAttributes el attrs = do
               let b = str == str'
               pure b
             pure res
+
+-- | Brings user focus to the specified application.
+focusApp :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m ()
+focusApp app = do
+  b <- liftIO . setFrontProcessFrontWindowOnly . _crbnPID . _appProcess $ app
+  if b then pure () else throwing _ScriptError InvalidUIElementError

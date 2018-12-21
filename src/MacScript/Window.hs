@@ -49,7 +49,7 @@ import Control.Monad.Loops (orM)
 import MacSdk hiding (Event)
 import MacScript.Prelude
 import MacScript.AppTypes
-import MacScript.App (focusedApp, isAppHidden, interactiveApps)
+import MacScript.App (focusedApp, isAppHidden, interactiveApps, focusApp)
 import MacScript.Event
 import MacScript.Rectangle
 import MacScript.Space
