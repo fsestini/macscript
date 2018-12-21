@@ -8,12 +8,10 @@ import MacSdk.Framework.Carbon
 
 import MacScript.Error
 import MacScript.Prelude
-import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
-import MacScript.Internal.App (supportsAttributes, mkAppRetry)
+import MacScript.Internal.Process (CarbonProcess(..))
+import MacScript.Internal.App (supportsAttributes)
 
 import MacScript.Internal.App (App(..))
-
-import Control.Monad.Loops (orM)
 
 -- | Returns whether the two windows have the same identifier.
 --
@@ -22,26 +20,6 @@ import Control.Monad.Loops (orM)
 -- @
 sameWID :: Window -> Window -> Bool
 sameWID w1 w2 = _windowID w1 == _windowID w2
-
--- | Returns the window that is currently focused within an application.
---
--- Note that this may not be the window that has the current user input focus.
--- In particular, it is not if the specified application is not focused. Rather,
--- it is the window that would be focused if the specified parent application
--- had focus.
-focusedWindowInApp
-  :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m (Maybe Window)
-focusedWindowInApp app@(App {..}) = wrapAXErr . runMaybeT $ do
-  el <- MaybeT $ maybeOnAXErrs [AXErrorNoValue]
-          (attributeValue _appElement FocusedWindowAttribute)
-  MaybeT (maybeOnInvalidOrTimeout (mkWindowRetry 1 app el))
-
--- | Returns the application that is currently focused.
-focusedApp :: (MonadIO m, MonadError e m, AsScriptError e) => m App
-focusedApp =
-  liftIO (focusedProcess >>= carbonProcess) >>=
-    fmap (fromMaybe err) . wrapAXErr . mkAppRetry 1
-  where err = error "focusedApp: cannot create app"
 
 --------------------------------------------------------------------------------
 -- Windows
@@ -94,23 +72,6 @@ focusApp :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m ()
 focusApp app = do
   b <- liftIO . setFrontProcessFrontWindowOnly . _crbnPID . _appProcess $ app
   if b then pure () else throwing _ScriptError InvalidUIElementError
-
--- | Moves user input focus to the specified window.
-focusWindow :: (MonadIO m, MonadError e m, AsScriptError e) => Window -> m ()
-focusWindow w = do
-  sp <- windowSpace w
-  go
-  orM (replicate 20 (go >> weGood sp)) >> pure ()
-  where
-    weGood sp = (&&) <$> onIt <*> onSameSpace sp
-    currentlyFoc = focusedApp >>= focusedWindowInApp
-    onIt = maybe False (sameWID w) <$> currentlyFoc
-    onSameSpace s = (s ==) <$> activeSpace
-    go = do
-      focusApp (_windowParent w)
-      wrapAXErr $ do
-        setAttribute (_windowElement w) MainAttribute True
-        setAttribute (_windowElement w) FocusedAttribute True
 
 displayUUIDString :: DisplayID -> IO CFString
 displayUUIDString = displayUUID >=> uuidString'

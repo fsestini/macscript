@@ -32,7 +32,7 @@ import MacScript.Event
 import MacScript.Error
 import MacScript.Space
 
-import MacScript.Internal.Process (CarbonProcess(..))
+import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
 import MacScript.Internal.App (App(..), mkAppRetry)
 
 import Data.List (find)
@@ -68,6 +68,13 @@ isAppHidden :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m Bool
 isAppHidden app =
   (liftIO . isProcessHidden . _appProcess) app >>=
     maybe (throwing _ScriptError InvalidUIElementError) pure
+
+-- | Returns the application that is currently focused.
+focusedApp :: (MonadIO m, MonadError e m, AsScriptError e) => m App
+focusedApp =
+  liftIO (focusedProcess >>= carbonProcess) >>=
+    fmap (fromMaybe err) . wrapAXErr . mkAppRetry 1
+  where err = error "focusedApp: cannot create app"
 
 --------------------------------------------------------------------------------
 -- App events

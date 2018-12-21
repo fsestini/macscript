@@ -44,6 +44,8 @@ module MacScript.Window
 
 import Data.List (sortBy)
 import Data.Ord (comparing, Down(..))
+import Control.Monad.Loops (orM)
+
 import MacSdk hiding (Event)
 import MacScript.Prelude
 import MacScript.AppTypes
@@ -231,3 +233,33 @@ setWindowRect w Rect {..} =
 -- | Returns the focused window within the currently focused application.
 focusedWindow :: (MonadIO m, MonadError e m, AsScriptError e) => m (Maybe Window)
 focusedWindow = focusedApp >>= focusedWindowInApp
+
+-- | Moves user input focus to the specified window.
+focusWindow :: (MonadIO m, MonadError e m, AsScriptError e) => Window -> m ()
+focusWindow w = do
+  sp <- windowSpace w
+  go
+  orM (replicate 20 (go >> weGood sp)) >> pure ()
+  where
+    weGood sp = (&&) <$> onIt <*> onSameSpace sp
+    currentlyFoc = focusedApp >>= focusedWindowInApp
+    onIt = maybe False (sameWID w) <$> currentlyFoc
+    onSameSpace s = (s ==) <$> activeSpace
+    go = do
+      focusApp (_windowParent w)
+      wrapAXErr $ do
+        setAttribute (_windowElement w) MainAttribute True
+        setAttribute (_windowElement w) FocusedAttribute True
+
+-- | Returns the window that is currently focused within an application.
+--
+-- Note that this may not be the window that has the current user input focus.
+-- In particular, it is not if the specified application is not focused. Rather,
+-- it is the window that would be focused if the specified parent application
+-- had focus.
+focusedWindowInApp
+  :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m (Maybe Window)
+focusedWindowInApp app@(App {..}) = wrapAXErr . runMaybeT $ do
+  el <- MaybeT $ maybeOnAXErrs [AXErrorNoValue]
+          (attributeValue _appElement FocusedWindowAttribute)
+  MaybeT (maybeOnInvalidOrTimeout (mkWindowRetry 1 app el))
