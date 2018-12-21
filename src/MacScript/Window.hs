@@ -57,6 +57,7 @@ import MacScript.Display
 import MacScript.Error
 import MacScript.Internal.Process (CarbonProcess(..))
 import MacScript.Internal.App (App(..))
+import MacScript.Internal.Window (Window(..), mkWindowRetry)
 
 import Foreign.Ptr
 import Foreign.StablePtr
@@ -263,3 +264,14 @@ focusedWindowInApp app@(App {..}) = wrapAXErr . runMaybeT $ do
   el <- MaybeT $ maybeOnAXErrs [AXErrorNoValue]
           (attributeValue _appElement FocusedWindowAttribute)
   MaybeT (maybeOnInvalidOrTimeout (mkWindowRetry 1 app el))
+
+-- | Return all windows of an application that appear in the currently focused
+-- Mission Control space.
+windows :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m [Window]
+windows app@App {..} = do
+  ws <- wrapAXErr . maybeOnAXErrs [ AXErrorNoValue ] $ do
+    elems <- getWindowElements _appElement
+    catMaybes <$> mapM (maybeOnInvalidOrTimeout . mkWindowRetry 1 app) elems
+  maybe (pure []) pure ws
+  where getWindowElements a =
+          attributeValue a WindowsAttribute >>= liftIO . arrayValues

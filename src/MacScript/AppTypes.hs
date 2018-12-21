@@ -3,13 +3,12 @@
 module MacScript.AppTypes where
 
 import MacSdk
-import MacSdk.Framework.Accessibility.Attribute.Types
 import MacSdk.Framework.Carbon
 
 import MacScript.Error
 import MacScript.Prelude
 import MacScript.Internal.Process (CarbonProcess(..))
-import MacScript.Internal.App (supportsAttributes)
+import MacScript.Internal.Window (Window(..))
 
 import MacScript.Internal.App (App(..))
 
@@ -20,37 +19,6 @@ import MacScript.Internal.App (App(..))
 -- @
 sameWID :: Window -> Window -> Bool
 sameWID w1 w2 = _windowID w1 == _windowID w2
-
---------------------------------------------------------------------------------
--- Windows
-
-data Window = Window
-  { _windowParent :: App
-  , _windowElement :: UIElement
-  , _windowID :: WindowID
-  }
-
-instance Show Window where
-  show w = "Window (" ++ show (_windowParent w) ++ ") " ++ show (_windowID w)
-
-mkWindowRetry
-  :: MonadIO m => Int -> App -> UIElement -> ExceptT AXError m (Maybe Window)
-mkWindowRetry n app ref =
-  retryOnCannotComplete n $ do
-    bAttrs <- supportsAttributes ref
-      [ SomeAttribute RoleAttribute
-      , SomeAttribute SubroleAttribute
-      , SomeAttribute TitleAttribute
-      , SomeAttribute FocusedAttribute
-      , SomeAttribute PositionAttribute
-      , SomeAttribute SizeAttribute
-      , SomeAttribute MinimizedAttribute
-      , SomeAttribute CloseButtonAttribute
-      ]
-    bRole <- (== WindowRole) <$> role ref
-    if bAttrs && bRole
-      then fmap Just (Window app ref <$> getWindowElementID ref)
-      else pure Nothing
 
 -- startObserver :: Observer -> IO ()
 -- startObserver obs = do
@@ -100,14 +68,3 @@ windowSpace = liftIO . spaceForWindowID . _windowID
 -- 'WindowID' belongs to.
 spaceIDForWindowID :: WindowID -> IO SpaceID
 spaceIDForWindowID = displayForWindow' >=> currentSpace'
-
--- | Return all windows of an application that appear in the currently focused
--- Mission Control space.
-windows :: (MonadIO m, MonadError e m, AsScriptError e) => App -> m [Window]
-windows app@App {..} = do
-  ws <- wrapAXErr . maybeOnAXErrs [ AXErrorNoValue ] $ do
-    elems <- getWindowElements _appElement
-    catMaybes <$> mapM (maybeOnInvalidOrTimeout . mkWindowRetry 1 app) elems
-  maybe (pure []) pure ws
-  where getWindowElements a =
-          attributeValue a WindowsAttribute >>= liftIO . arrayValues

@@ -34,6 +34,7 @@ import MacScript.Space
 
 import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
 import MacScript.Internal.App (App(..), mkAppRetry)
+import MacScript.Internal.Window (Window(..), mkWindowRetry)
 
 import Data.List (find)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)

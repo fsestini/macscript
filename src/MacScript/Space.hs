@@ -39,6 +39,7 @@ import MacScript.AppTypes
 import MacScript.Error
 import MacScript.Internal.Process (carbonProcess)
 import MacScript.Internal.App (App, mkAppRetry)
+import MacScript.Internal.Window (Window(..))
 
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 
