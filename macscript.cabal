@@ -26,6 +26,7 @@ library
       MacScript.Window
 
       MacScript.Internal.Process
+      MacScript.Internal.App
   other-modules:
       Control.Monad.IO.Lifted
       MacScript.AppTypes

@@ -33,6 +33,7 @@ import MacScript.Error
 import MacScript.Space
 
 import MacScript.Internal.Process (CarbonProcess(..))
+import MacScript.Internal.App (App(..), mkAppRetry)
 
 import Data.List (find)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)

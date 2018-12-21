@@ -54,6 +54,7 @@ import MacScript.Space
 import MacScript.Display
 import MacScript.Error
 import MacScript.Internal.Process (CarbonProcess(..))
+import MacScript.Internal.App (App(..))
 
 import Foreign.Ptr
 import Foreign.StablePtr

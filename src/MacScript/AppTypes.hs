@@ -8,9 +8,10 @@ import MacSdk.Framework.Carbon
 
 import MacScript.Error
 import MacScript.Prelude
-import MacScript.Process (processName)
 import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)
-import Data.Traversable (for)
+import MacScript.Internal.App (supportsAttributes, mkAppRetry)
+
+import MacScript.Internal.App (App(..))
 
 import Control.Monad.Loops (orM)
 
@@ -35,25 +36,6 @@ focusedWindowInApp app@(App {..}) = wrapAXErr . runMaybeT $ do
           (attributeValue _appElement FocusedWindowAttribute)
   MaybeT (maybeOnInvalidOrTimeout (mkWindowRetry 1 app el))
 
-data App = App
-  { _appProcess :: CarbonProcess
-  , _appElement :: UIElement
-  , _appName :: String
-  }
-
-instance Show App where
-  show (App p _ name) = "App " ++ show (_crbnPID p) ++ " " ++ name
-
-mkAppRetry :: MonadIO m => Int -> CarbonProcess -> ExceptT AXError m (Maybe App)
-mkAppRetry n p =
-  retryOnCannotComplete n $ do
-    el <- createAppElement (_crbnPID p)
-    b <- supportsAttributes el
-      [ SomeAttribute WindowsAttribute
-      , SomeAttribute FocusedWindowAttribute
-      ]
-    if b then Just . App p el <$> processName p else pure Nothing
-  
 -- | Returns the application that is currently focused.
 focusedApp :: (MonadIO m, MonadError e m, AsScriptError e) => m App
 focusedApp =
@@ -72,22 +54,6 @@ data Window = Window
 
 instance Show Window where
   show w = "Window (" ++ show (_windowParent w) ++ ") " ++ show (_windowID w)
-
-supportsAttributes
-  :: (MonadIO m, MonadError e m, AsAXError e) => UIElement -> [SomeAttribute] -> m Bool
-supportsAttributes el attrs = do
-  arr <- copyAttributeNames el
-  list <- join .
-    fmap (fmap catMaybes .
-          traverse (toString CFStringEncodingASCII)) . arrayValues $ arr
-  liftIO . fmap and $ traverse (supportsAttribute list) attrs
-  where supportsAttribute list (SomeAttribute attr) =
-          do
-            str <- toAttributeString attr
-            res <- fmap or . for list $ \str' -> do
-              let b = str == str'
-              pure b
-            pure res
 
 mkWindowRetry
   :: MonadIO m => Int -> App -> UIElement -> ExceptT AXError m (Maybe Window)
