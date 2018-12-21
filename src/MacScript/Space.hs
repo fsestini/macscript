@@ -165,3 +165,7 @@ displaySpaces d = lookup d <$> allSpaces
 activeDisplaySpaces :: MonadIO m => m (NonEmpty Space)
 activeDisplaySpaces = fromMaybe err <$> (activeDisplay >>= displaySpaces)
   where err = error "display-space inconsistecy"
+
+-- | Return the space that is currently active.
+activeSpace :: MonadIO m => m Space
+activeSpace = liftIO (activeSpaceID >>= createSpace)

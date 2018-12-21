@@ -39,10 +39,6 @@ activeSpaceIDForDisplay = displayUUIDString >=> currentSpace'
 activeSpaceID :: IO SpaceID
 activeSpaceID = MacSdk.activeDisplay >>= activeSpaceIDForDisplay
 
--- | Return the space that is currently active.
-activeSpace :: MonadIO m => m Space
-activeSpace = liftIO (activeSpaceID >>= createSpace)
-
 -- | Return the 'SpaceID' of the space that is currently active is the dispaly
 -- with given 'DisplayID'.
 activeSpaceForDisplay :: MonadIO m => DisplayID -> m Space
