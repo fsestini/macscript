@@ -2,11 +2,10 @@
 
 module MacScript.AppTypes where
 
-import MacSdk
+-- import MacSdk
 
-import MacScript.Prelude
+-- import MacScript.Prelude
 import MacScript.Internal.Window (Window(..))
-import MacScript.Internal.Space
 
 -- | Returns whether the two windows have the same identifier.
 --
@@ -22,22 +21,3 @@ sameWID w1 w2 = _windowID w1 == _windowID w2
 --   rls <- observerGetRunLoopSource obs
 --   b <- runLoopContainsSource mrl rls DefaultMode
 --   if b then pure () else runLoopAddSource mrl rls DefaultMode
-
-displayUUIDString :: DisplayID -> IO CFString
-displayUUIDString = displayUUID >=> uuidString'
-
-activeSpaceIDForDisplay :: DisplayID -> IO SpaceID
-activeSpaceIDForDisplay = displayUUIDString >=> currentSpace'
-
-activeSpaceID :: IO SpaceID
-activeSpaceID = MacSdk.activeDisplay >>= activeSpaceIDForDisplay
-
--- | Return the 'SpaceID' of the space that is currently active is the dispaly
--- with given 'DisplayID'.
-activeSpaceForDisplay :: MonadIO m => DisplayID -> m Space
-activeSpaceForDisplay = liftIO . (>>= createSpace) . activeSpaceIDForDisplay
-
--- | Returns the 'SpaceID' of the space to which the window with a given
--- 'WindowID' belongs to.
-spaceIDForWindowID :: WindowID -> IO SpaceID
-spaceIDForWindowID = displayForWindow' >=> currentSpace'

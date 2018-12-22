@@ -58,7 +58,7 @@ import MacScript.Error
 import MacScript.Internal.Process (CarbonProcess(..))
 import MacScript.Internal.App (App(..))
 import MacScript.Internal.Window (Window(..), mkWindowRetry)
-import MacScript.Internal.Space (createSpace)
+import MacScript.Internal.Space (createSpace, spaceIDForWindowID)
 
 import Foreign.Ptr
 import Foreign.StablePtr

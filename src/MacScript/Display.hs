@@ -9,6 +9,7 @@ module MacScript.Display
   , primaryDisplay
   , displayFullFrame
   , displayFrame
+  , activeSpaceForDisplay
   -- * Events
   , displayAddedEvent
   , displayRemovedEvent
@@ -22,6 +23,8 @@ import MacSdk
 import MacSdk.Framework.AppKit.Screen
 import MacScript.Event
 import MacScript.Error
+import MacScript.Internal.Display (activeSpaceIDForDisplay)
+import MacScript.Internal.Space
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Extra (findM)
 
@@ -75,3 +78,8 @@ displayE notif = Event $ \h -> do
   tok <- wrapCGErr . setDisplayCallback $ \did n ->
     if notif == n then h (fromIntegral did) else pure ()
   pure (Subscription (wrapCGErr $ removeDisplayCallback tok))
+
+-- | Return the 'SpaceID' of the space that is currently active is the dispaly
+-- with given 'DisplayID'.
+activeSpaceForDisplay :: MonadIO m => DisplayID -> m Space
+activeSpaceForDisplay = liftIO . (>>= createSpace) . activeSpaceIDForDisplay

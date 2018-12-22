@@ -11,7 +11,6 @@ module MacScript.Space
 
   -- * Query
   , activeSpace
-  , activeSpaceForDisplay
   , spaceHasWindow
   , allSpaces
   , displaySpaces
@@ -35,12 +34,12 @@ import MacSdk.Framework.Carbon
 import MacScript.Prelude
 import MacScript.Event
 import MacScript.Display
-import MacScript.AppTypes
 import MacScript.Error
 import MacScript.Internal.Process (carbonProcess)
 import MacScript.Internal.App (App, mkAppRetry)
 import MacScript.Internal.Window (Window(..))
-import MacScript.Internal.Space (Space(..), createSpace)
+import MacScript.Internal.Space (Space(..), createSpace, activeSpaceID)
+import MacScript.Internal.Display (displayUUIDString)
 
 import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 
