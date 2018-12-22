@@ -48,7 +48,6 @@ import Control.Monad.Loops (orM)
 
 import MacSdk hiding (Event)
 import MacScript.Prelude
-import MacScript.AppTypes
 import MacScript.App (focusedApp, isAppHidden, interactiveApps, focusApp)
 import MacScript.Event
 import MacScript.Rectangle
@@ -63,6 +62,14 @@ import MacScript.Internal.Space (createSpace, spaceIDForWindowID)
 import Foreign.Ptr
 import Foreign.StablePtr
 import Data.IORef
+
+-- | Returns whether the two windows have the same identifier.
+--
+-- @
+-- sameWID w1 w2 == (windowID w1 == windowID w2)
+-- @
+sameWID :: Window -> Window -> Bool
+sameWID w1 w2 = _windowID w1 == _windowID w2
 
 spaceMoveWindow :: MonadIO m => SpaceID -> WindowID -> m ()
 spaceMoveWindow sid wid = liftIO $ do

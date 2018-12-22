@@ -32,7 +32,6 @@ library
       MacScript.Internal.Display
   other-modules:
       Control.Monad.IO.Lifted
-      MacScript.AppTypes
 
       Paths_macscript
   hs-source-dirs:
