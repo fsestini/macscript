@@ -5,7 +5,6 @@ module MacSdk.Framework.AppKit.Event where
 import MacSdk.Framework.CoreGraphics.Rect
 import MacSdk.Framework.AppKit.Screen
 import Foreign
-import Data.Word
 import Control.Monad.IO.Class (MonadIO(..))
 import Lens.Micro
 
