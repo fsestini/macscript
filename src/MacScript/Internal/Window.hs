@@ -4,7 +4,7 @@ import MacSdk (UIElement, WindowID, AXError, Role(..), role, getWindowElementID)
 import MacSdk.Framework.Accessibility.Attribute.Types
   (SomeAttribute(..), Attribute(..))
 
-import MacScript.Prelude
+import MacScript.Internal.Prelude
 import MacScript.Internal.Error (retryOnCannotComplete)
 import MacScript.Internal.App (App, supportsAttributes)
 

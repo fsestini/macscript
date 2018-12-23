@@ -33,7 +33,7 @@ module MacScript.Event
   , filterE
   ) where
 
-import MacScript.Prelude
+import MacScript.Internal.Prelude
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, modifyTVar)
 import Control.Monad.IO.Class (MonadIO(..))

@@ -47,12 +47,12 @@ import Data.Ord (comparing, Down(..))
 import Control.Monad.Loops (orM)
 
 import MacSdk hiding (Event)
-import MacScript.Prelude
 import MacScript.App (focusedApp, isAppHidden, interactiveApps, focusApp)
 import MacScript.Event
 import MacScript.Rectangle
 import MacScript.Space
 import MacScript.Display
+import MacScript.Internal.Prelude
 import MacScript.Internal.Error (AsScriptError, handleScriptErr, wrapAXErr,
                                  maybeOnAXErrs, maybeOnInvalidOrTimeout)
 import MacScript.Internal.Process (CarbonProcess(..))

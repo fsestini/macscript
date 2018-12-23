@@ -7,7 +7,7 @@ import MacSdk (UIElement, AXError, AsAXError, createAppElement,
 import MacSdk.Framework.Accessibility.Attribute.Types
   (SomeAttribute(..), Attribute(..), toAttributeString)
 
-import MacScript.Prelude
+import MacScript.Internal.Prelude
 import MacScript.Process (processName, setFrontProcessFrontWindowOnly)
 import MacScript.Internal.Error (AsScriptError(..), ScriptError(..),
                                  retryOnCannotComplete, throwing)

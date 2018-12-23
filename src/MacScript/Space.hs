@@ -31,9 +31,9 @@ import MacSdk hiding (Event, activeDisplay)
 import MacSdk.Framework.Foundation
 import MacSdk.Framework.Carbon
 
-import MacScript.Prelude
 import MacScript.Event
 import MacScript.Display
+import MacScript.Internal.Prelude
 import MacScript.Internal.Error (maybeOnInvalidOrTimeout')
 import MacScript.Internal.Process (carbonProcess)
 import MacScript.Internal.App (App, mkAppRetry)

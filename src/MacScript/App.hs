@@ -25,9 +25,9 @@ module MacScript.App
 
 import MacSdk (PID, observerCreate, addNotification, observerStart',
                observerStop, observerRelease, UINotification(..))
-import MacScript.Prelude
 import MacScript.Process
 import MacScript.Event
+import MacScript.Internal.Prelude
 import MacScript.Internal.Error (AsScriptError(..), ScriptError(..),
                                  maybeOnInvalidOrTimeout', throwing, wrapAXErr,
                                  handleScriptErr)

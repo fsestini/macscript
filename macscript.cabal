@@ -18,12 +18,12 @@ library
       MacScript.Keyboard
       MacScript.Load
       MacScript.Mouse
-      MacScript.Prelude
       MacScript.Process
       MacScript.Rectangle
       MacScript.Space
       MacScript.Window
 
+      MacScript.Internal.Prelude
       MacScript.Internal.Error
       MacScript.Internal.Process
       MacScript.Internal.App
