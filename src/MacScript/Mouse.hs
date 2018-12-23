@@ -1,7 +1,7 @@
 module MacScript.Mouse
   ( MouseButton(..)
-  , MouseButtonPress(..)
-  , pressedMouseButton
+  -- , MouseButtonPress(..)
+  , mouseCurrentButton
   , mouseLeftButtonClick
   , mousePosition
   , mouseSetPosition
@@ -10,12 +10,15 @@ module MacScript.Mouse
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Trans.Maybe
 import Control.Monad (void)
-import MacScript.Error
+import MacScript.Internal.Error (wrapCGErr)
 
-import MacSdk
-import MacSdk.Framework.AppKit
+import MacSdk (Point, EventType(..), MouseButtonPress(..), EventTapLocation(..),
+               warpMouseCursorPosition, createMouseEvent, eventPost,
+               eventSetType)
+import MacSdk.Framework.AppKit (MouseButton(..), pressedMouseButton,
+                                mouseLocation)
 
--- | Simulate a left mouse button click at the specified point.
+-- | Simulates a left mouse button click at the specified point.
 mouseLeftButtonClick :: MonadIO m => Point -> m ()
 mouseLeftButtonClick p = liftIO . void . runMaybeT $ do
   ev <- MaybeT $ createMouseEvent Nothing EventLeftMouseDown p LeftButtonPress
@@ -24,8 +27,14 @@ mouseLeftButtonClick p = liftIO . void . runMaybeT $ do
     eventSetType ev EventLeftMouseUp
     eventPost HIDEventTap ev
 
+-- | Returns the current mouse position in Quartz coordinates.
 mousePosition :: MonadIO m => m Point
 mousePosition = mouseLocation
 
+-- | Sets the position of the mouse cursor.
 mouseSetPosition :: MonadIO m => Point -> m ()
 mouseSetPosition = wrapCGErr . warpMouseCursorPosition
+
+-- | Returns the currently depressed mouse button.
+mouseCurrentButton :: MonadIO m => m MouseButton
+mouseCurrentButton = pressedMouseButton

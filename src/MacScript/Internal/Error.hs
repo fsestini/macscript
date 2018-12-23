@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
-module MacScript.Error where
+module MacScript.Internal.Error where
 
 import MacSdk (AXError(..), CGError(..))
 import Control.Concurrent (threadDelay)

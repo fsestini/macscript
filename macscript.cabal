@@ -13,7 +13,6 @@ library
       MacScript
       MacScript.App
       MacScript.Display
-      MacScript.Error
       MacScript.Event
       MacScript.Interactive
       MacScript.Keyboard
@@ -25,6 +24,7 @@ library
       MacScript.Space
       MacScript.Window
 
+      MacScript.Internal.Error
       MacScript.Internal.Process
       MacScript.Internal.App
       MacScript.Internal.Window

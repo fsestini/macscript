@@ -53,7 +53,8 @@ import MacScript.Event
 import MacScript.Rectangle
 import MacScript.Space
 import MacScript.Display
-import MacScript.Error
+import MacScript.Internal.Error (AsScriptError, handleScriptErr, wrapAXErr,
+                                 maybeOnAXErrs, maybeOnInvalidOrTimeout)
 import MacScript.Internal.Process (CarbonProcess(..))
 import MacScript.Internal.App (App(..))
 import MacScript.Internal.Window (Window(..), mkWindowRetry)

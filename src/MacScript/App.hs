@@ -28,7 +28,9 @@ import MacSdk (PID, observerCreate, addNotification, observerStart',
 import MacScript.Prelude
 import MacScript.Process
 import MacScript.Event
-import MacScript.Error
+import MacScript.Internal.Error (AsScriptError(..), ScriptError(..),
+                                 maybeOnInvalidOrTimeout', throwing, wrapAXErr,
+                                 handleScriptErr)
 import MacScript.Space
 
 import MacScript.Internal.Process (CarbonProcess(..), carbonProcess)

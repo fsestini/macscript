@@ -8,7 +8,7 @@ module MacScript
   , module MacScript.Window
   , module MacScript.Keyboard
   , module MacScript.Rectangle
-  , module MacScript.Error
+  , module MacScript.Internal.Error
   , module MacScript.Load
   , module Control.Monad.IO.Lifted
   ) where
@@ -23,5 +23,5 @@ import MacScript.Rectangle
 import MacScript.Mouse
 import MacScript.Event
 import MacScript.Load
-import MacScript.Error (ScriptError(..), AsScriptError(..))
+import MacScript.Internal.Error (ScriptError(..), AsScriptError(..))
 import Control.Monad.IO.Lifted

@@ -34,7 +34,7 @@ import MacSdk.Framework.Carbon
 import MacScript.Prelude
 import MacScript.Event
 import MacScript.Display
-import MacScript.Error
+import MacScript.Internal.Error (maybeOnInvalidOrTimeout')
 import MacScript.Internal.Process (carbonProcess)
 import MacScript.Internal.App (App, mkAppRetry)
 import MacScript.Internal.Window (Window(..))

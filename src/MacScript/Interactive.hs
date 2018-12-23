@@ -12,7 +12,7 @@
 -- >>> Just app <- findApp "Emacs"
 -- >>> [w] <- windows app
 -- >>> windowTitle w
--- Just "Interactive.hs - Doom Emacs"
+-- Just "Interactive.hs - Emacs"
 -- >>> windowSpace w
 -- Space {spcID = 6, spcType = UserSpace}
 
@@ -20,7 +20,7 @@ module MacScript.Interactive (module MacScript) where
 
 import MacScript
 
-import MacScript.Error
+import MacScript.Internal.Error (prism)
 import Control.Exception
 
 instance AsScriptError IOException where

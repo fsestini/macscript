@@ -22,7 +22,7 @@ import MacSdk
         activeDisplays, setDisplayCallback, removeDisplayCallback)
 import MacSdk.Framework.AppKit.Screen
 import MacScript.Event
-import MacScript.Error
+import MacScript.Internal.Error (wrapCGErr)
 import MacScript.Internal.Display (activeSpaceIDForDisplay)
 import MacScript.Internal.Space
 import Control.Monad.IO.Class (MonadIO(..))

@@ -5,7 +5,7 @@ import MacSdk.Framework.Accessibility.Attribute.Types
   (SomeAttribute(..), Attribute(..))
 
 import MacScript.Prelude
-import MacScript.Error (retryOnCannotComplete)
+import MacScript.Internal.Error (retryOnCannotComplete)
 import MacScript.Internal.App (App, supportsAttributes)
 
 data Window = Window

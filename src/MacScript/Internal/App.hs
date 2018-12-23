@@ -9,8 +9,8 @@ import MacSdk.Framework.Accessibility.Attribute.Types
 
 import MacScript.Prelude
 import MacScript.Process (processName, setFrontProcessFrontWindowOnly)
-import MacScript.Error (AsScriptError(..), ScriptError(..),
-                        retryOnCannotComplete, throwing)
+import MacScript.Internal.Error (AsScriptError(..), ScriptError(..),
+                                 retryOnCannotComplete, throwing)
 import MacScript.Internal.Process (CarbonProcess(..))
 
 data App = App
