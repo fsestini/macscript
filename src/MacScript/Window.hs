@@ -27,6 +27,7 @@ module MacScript.Window
 
   -- * Visibility attributes
   , isWindowMinimized
+  , windowMinimize
   , isWindowVisible
   , isWindowHidden
 
@@ -195,6 +196,11 @@ isWindowResizable =
 isWindowMinimized :: (MonadIO m, MonadError e m, AsScriptError e) => Window -> m Bool
 isWindowMinimized w =
   wrapAXErr $ attributeValue (_windowElement w) MinimizedAttribute
+
+-- | Minimizes a window.
+windowMinimize :: (MonadIO m, MonadError e m, AsScriptError e) => Window -> m ()
+windowMinimize w =
+  wrapAXErr $ setAttribute (_windowElement w) MinimizedAttribute True
 
 -- | Returns whether a window is hidden, i.e., if it is either minimized, or its
 -- parent application is hidden. It returns 'Nothing' if the window element is
