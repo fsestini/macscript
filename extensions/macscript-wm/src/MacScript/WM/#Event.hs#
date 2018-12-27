@@ -1,12 +1,10 @@
-{-# LANGUAGE ExistentialQuantification, DeriveFunctor, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ExistentialQuantification, DeriveFunctor, GeneralizedN #-}
 
 module MacScript.WM.Event
   ( WMEvent(..)
   , events
 
   , EventT
-  , runEventT
-  , onT_
   ) where
 
 import MacScript
@@ -36,11 +34,33 @@ queueForever :: MonadIO m => TQueue (SomeEvent m) -> m ()
 queueForever q =
   forever (liftIO (atomically (readTQueue q)) >>= \(SomeEvent arg f) -> f arg)
 
+-- Runs an 'EventT' expression, returning a value in the underlying monad that
+-- has the effect of registering all event subscriptions and then waiting for
+-- them to fire.
+--
+-- Internally, 'EventT' implements inversion of control by writing all event
+-- values to a queue, and then reading them back immediately from the @m@ monad,
+-- handing them to the appropriate handler function. This works by waiting
+-- forever on the queue, which means that 'runEventT' blocks indefinitely,
+-- since there is no way to fork an action in the underlying monad, unless this
+-- is 'IO' or an instance of 'MonadUnliftIO'. See 'runEventTIO' for a
+-- non-blocking version of 'runEventT' that does exactly this.
 runEventT :: MonadIO m => EventT m () -> m ()
 runEventT (EventT h) = do
   q <- liftIO newTQueueIO
   runReaderT h q
   queueForever q
+
+-- A non-blocking version of 'runEventT' that exploits an instance of
+-- 'MonadUnliftIO' for @m@ by turning the resulting action into an 'IO' action,
+-- and then forking it.
+runEventTIO :: MonadUnliftIO m => EventT m a -> m a
+runEventTIO (EventT h) = do
+  q <- liftIO newTQueueIO
+  x <- runReaderT h q
+  g <- askRunInIO
+  _ <- liftIO . forkIO . g $ queueForever q
+  pure x
 
 data SomeEvent m = forall a . SomeEvent a (a -> m ())
 

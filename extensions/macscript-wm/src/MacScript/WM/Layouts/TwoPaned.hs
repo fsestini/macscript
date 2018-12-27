@@ -4,8 +4,8 @@ module MacScript.WM.Layouts.TwoPaned
   , defaultTall
   ) where
 
-import MacScript.Prelude
-
+import Data.Maybe (fromMaybe)
+import Safe (headMay)
 import Utils
 import MacScript hiding (on)
 import Data.List.NonEmptyZipper

@@ -7,7 +7,6 @@ import MacScript.WM.Operations
 import MacScript.MenuBar
 
 import Data.Maybe (fromMaybe)
-import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent
 import Control.Monad.State
 import Data.List (nub)

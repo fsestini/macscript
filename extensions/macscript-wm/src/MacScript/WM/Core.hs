@@ -48,7 +48,7 @@ module MacScript.WM.Core
   ) where
 
 import MacScript
-import MacScript.Error
+import MacScript.Internal.Error (prism)
 import MacScript.MenuBar
 
 import Control.Monad.Reader

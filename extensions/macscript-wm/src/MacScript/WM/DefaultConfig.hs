@@ -119,7 +119,7 @@ windowMotionBindings = second (justLog "") <$>
 defaultConfig :: UserConfig
 defaultConfig =
   UserConfig
-    { _wmcTileMode    = OptIn ["Terminal", "Emacs"]
+    { _wmcTileMode    = OptIn [] -- ["Terminal", "Emacs"]
     , _wmcPadding     = 0
     , _wmcLayouts     = ("Tall", SL defaultTall) :| [("Max", SL Maximized)]
     , _wmcKeybindings = defaultKeyBindings

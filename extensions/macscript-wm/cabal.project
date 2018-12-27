@@ -1,6 +1,7 @@
 packages: 
   ./
-  ../../macos-corelibs/
   ../../
   ../../macos-extras/
   ../macscript-menubar/
+
+allow-newer: non-empty-zipper:base
